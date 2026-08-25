@@ -1,7 +1,7 @@
 ﻿// src/context/AdminContext.tsx
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, type ReactNode, useCallback } from "react";
 import type {
   PlatformMerchant,
   CourierHealthMetric,
@@ -30,6 +30,7 @@ export interface AdminContextType {
   transactions: PlatformTransaction[];
   broadcasts: SystemBroadcast[];
   maintenanceMode: boolean;
+  refreshCouriers: () => Promise<void>;
   updateMerchantStatus: (id: string, status: PlatformMerchant["status"]) => void;
   updateMerchantPlan: (id: string, plan: PlatformMerchant["plan"]) => void;
   addBlacklistEntry: (entry: Omit<GlobalBlacklistEntry, "id" | "addedDate" | "addedBy">) => void;
@@ -77,39 +78,39 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const [maintenanceMode, setMaintenanceMode] = useState<boolean>(false);
   const [mounted, setMounted] = useState(false);
 
-  const refreshCouriers = async () => {
+  const refreshCouriers = useCallback(async () => {
     try {
       const res = await api.get<CourierHealthMetric[]>("/admin/couriers/health");
-      if (Array.isArray(res)) setCouriers(res);
+      if (Array.isArray(res) && res.length > 0) {
+        setCouriers(res);
+      }
     } catch {}
-  };
+  }, []);
+
+  const syncAdminWithBackend = useCallback(async () => {
+    try {
+      const [mRes, cRes, bRes, tRes, bcRes] = await Promise.allSettled([
+        api.get<PlatformMerchant[]>("/admin/merchants"),
+        api.get<CourierHealthMetric[]>("/admin/couriers/health"),
+        api.get<GlobalBlacklistEntry[]>("/admin/blacklist"),
+        api.get<PlatformTransaction[]>("/admin/finance/transactions"),
+        api.get<SystemBroadcast[]>("/admin/broadcasts"),
+      ]);
+
+      if (mRes.status === "fulfilled" && Array.isArray(mRes.value)) setMerchants(mRes.value);
+      if (cRes.status === "fulfilled" && Array.isArray(cRes.value)) setCouriers(cRes.value);
+      if (bRes.status === "fulfilled" && Array.isArray(bRes.value)) setBlacklist(bRes.value);
+      if (tRes.status === "fulfilled" && Array.isArray(tRes.value)) setTransactions(tRes.value);
+      if (bcRes.status === "fulfilled" && Array.isArray(bcRes.value)) setBroadcasts(bcRes.value);
+    } catch (err) {
+      console.warn("[AdminContext] Failed to sync admin data:", err);
+    }
+  }, []);
 
   useEffect(() => {
     setMounted(true);
-    const syncAdminWithBackend = async () => {
-      try {
-        const [mRes, cRes, bRes, tRes, bcRes] = await Promise.allSettled([
-          api.get<PlatformMerchant[]>("/admin/merchants"),
-          api.get<CourierHealthMetric[]>("/admin/couriers/health"),
-          api.get<GlobalBlacklistEntry[]>("/admin/blacklist"),
-          api.get<PlatformTransaction[]>("/admin/finance/transactions"),
-          api.get<SystemBroadcast[]>("/admin/broadcasts"),
-        ]);
-
-        if (mRes.status === "fulfilled" && Array.isArray(mRes.value)) setMerchants(mRes.value);
-        if (cRes.status === "fulfilled" && Array.isArray(cRes.value)) setCouriers(cRes.value);
-        if (bRes.status === "fulfilled" && Array.isArray(bRes.value)) setBlacklist(bRes.value);
-        if (tRes.status === "fulfilled" && Array.isArray(tRes.value)) setTransactions(tRes.value);
-        if (bcRes.status === "fulfilled" && Array.isArray(bcRes.value)) setBroadcasts(bcRes.value);
-      } catch (err) {
-        console.warn("[AdminContext] Failed to sync admin data:", err);
-      }
-    };
-
-    if (typeof window !== "undefined" && localStorage.getItem("pg_access_token")) {
-      void syncAdminWithBackend();
-    }
-  }, []);
+    void syncAdminWithBackend();
+  }, [syncAdminWithBackend]);
 
   useEffect(() => { if (mounted) localStorage.setItem("pg_admin_merchants_v1", JSON.stringify(merchants)); }, [merchants, mounted]);
   useEffect(() => { if (mounted) localStorage.setItem("pg_admin_couriers_v1", JSON.stringify(couriers)); }, [couriers, mounted]);
@@ -215,6 +216,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       prev.map((c) => (c.name === provider ? { ...c, apiKey, secretKey, isActive, isConfigured: Boolean(apiKey) } : c)),
     );
     await api.post("/admin/couriers/credentials", { provider, apiKey, secretKey, isActive });
+    await refreshCouriers();
   };
 
   const testCourierConnection = async (provider: string) => {
@@ -242,6 +244,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         transactions,
         broadcasts,
         maintenanceMode,
+        refreshCouriers,
         updateMerchantStatus,
         updateMerchantPlan,
         addBlacklistEntry,
