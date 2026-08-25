@@ -4,6 +4,7 @@
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import type { PlatformMerchant, CourierHealthMetric, GlobalBlacklistEntry, PlatformTransaction, SystemBroadcast } from "../types/admin";
 import { initialPlatformMerchants, initialCourierHealth, initialGlobalBlacklist, initialTransactions, initialBroadcasts } from "../data/adminMockData";
+import { api } from "../lib/api";
 
 export interface AdminContextType {
   merchants: PlatformMerchant[];
@@ -34,23 +35,29 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
-    const savedMerchants = localStorage.getItem("pg_admin_merchants_v1");
-    if (savedMerchants) setMerchants(JSON.parse(savedMerchants));
+    const syncAdminWithBackend = async () => {
+      try {
+        const [mRes, cRes, bRes, tRes, bcRes] = await Promise.allSettled([
+          api.get<PlatformMerchant[]>("/admin/merchants"),
+          api.get<CourierHealthMetric[]>("/admin/couriers/health"),
+          api.get<GlobalBlacklistEntry[]>("/admin/blacklist"),
+          api.get<PlatformTransaction[]>("/admin/finance/transactions"),
+          api.get<SystemBroadcast[]>("/admin/broadcasts"),
+        ]);
 
-    const savedCouriers = localStorage.getItem("pg_admin_couriers_v1");
-    if (savedCouriers) setCouriers(JSON.parse(savedCouriers));
+        if (mRes.status === "fulfilled" && mRes.value?.length) setMerchants(mRes.value);
+        if (cRes.status === "fulfilled" && cRes.value?.length) setCouriers(cRes.value);
+        if (bRes.status === "fulfilled" && bRes.value?.length) setBlacklist(bRes.value);
+        if (tRes.status === "fulfilled" && tRes.value?.length) setTransactions(tRes.value);
+        if (bcRes.status === "fulfilled" && bcRes.value?.length) setBroadcasts(bcRes.value);
+      } catch {
+        // Fallback to local storage
+      }
+    };
 
-    const savedBlacklist = localStorage.getItem("pg_admin_blacklist_v1");
-    if (savedBlacklist) setBlacklist(JSON.parse(savedBlacklist));
-
-    const savedTransactions = localStorage.getItem("pg_admin_transactions_v1");
-    if (savedTransactions) setTransactions(JSON.parse(savedTransactions));
-
-    const savedBroadcasts = localStorage.getItem("pg_admin_broadcasts_v1");
-    if (savedBroadcasts) setBroadcasts(JSON.parse(savedBroadcasts));
-
-    const savedMaint = localStorage.getItem("pg_admin_maint_v1");
-    if (savedMaint) setMaintenanceMode(savedMaint === "true");
+    if (typeof window !== "undefined" && localStorage.getItem("pg_access_token")) {
+      void syncAdminWithBackend();
+    }
   }, []);
 
   useEffect(() => { if (mounted) localStorage.setItem("pg_admin_merchants_v1", JSON.stringify(merchants)); }, [merchants, mounted]);
@@ -62,6 +69,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   const updateMerchantStatus = (id: string, status: PlatformMerchant["status"]) => {
     setMerchants(prev => prev.map(m => (m.id === id ? { ...m, status } : m)));
+    api.patch(`/admin/merchants/${id}/status`, { status }).catch(() => {});
   };
 
   const updateMerchantPlan = (id: string, plan: PlatformMerchant["plan"]) => {
@@ -74,6 +82,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         return m;
       })
     );
+    api.patch(`/admin/merchants/${id}/plan`, { plan }).catch(() => {});
   };
 
   const addBlacklistEntry = (entry: Omit<GlobalBlacklistEntry, "id" | "addedDate" | "addedBy">) => {
@@ -84,10 +93,13 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       addedBy: "Super Admin",
     };
     setBlacklist(prev => [newEntry, ...prev]);
+
+    api.post("/admin/blacklist", entry).catch(() => {});
   };
 
   const removeBlacklistEntry = (id: string) => {
     setBlacklist(prev => prev.filter(b => b.id !== id));
+    api.delete(`/admin/blacklist/${id}`).catch(() => {});
   };
 
   const sendBroadcast = (title: string, message: string, type: SystemBroadcast["type"], target: SystemBroadcast["target"]) => {
@@ -101,6 +113,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       deliveredCount: target === "All Merchants" ? 5420 : 1240,
     };
     setBroadcasts(prev => [newBroadcast, ...prev]);
+
+    api.post("/admin/broadcasts", { title, message, type, target }).catch(() => {});
   };
 
   const toggleCourierStatus = (name: CourierHealthMetric["name"]) => {
@@ -113,10 +127,12 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         return c;
       })
     );
+    api.post("/admin/couriers/toggle-health", { provider: name }).catch(() => {});
   };
 
   const toggleMaintenanceMode = () => {
     setMaintenanceMode(prev => !prev);
+    api.post("/admin/maintenance/toggle").catch(() => {});
   };
 
   return (

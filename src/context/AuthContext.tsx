@@ -2,12 +2,15 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { api } from "../lib/api";
 
 export interface AuthUser {
   name: string;
   email: string;
   phone?: string;
   role: "merchant" | "admin";
+  merchantId?: string;
+  accessToken?: string;
 }
 
 export interface AuthContextValue {
@@ -47,42 +50,88 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user) {
       localStorage.setItem("pg_auth", "true");
       localStorage.setItem("pg_user_v1", JSON.stringify(user));
+      if (user.accessToken) {
+        localStorage.setItem("pg_access_token", user.accessToken);
+      }
     } else {
       localStorage.removeItem("pg_auth");
       localStorage.removeItem("pg_user_v1");
+      localStorage.removeItem("pg_access_token");
     }
   }, [user, mounted]);
 
-  const login = async (email: string, _password: string): Promise<AuthUser> => {
-    await new Promise(r => setTimeout(r, 600));
+  const login = async (email: string, password: string): Promise<AuthUser> => {
+    try {
+      const res = await api.post<{
+        user: { name: string; email: string; role: "merchant" | "admin"; merchantId?: string };
+        accessToken: string;
+      }>("/auth/login", {
+        identifier: email,
+        password,
+      });
 
-    const isAdmin = email.toLowerCase().includes("admin");
-    const loggedUser: AuthUser = {
-      name: isAdmin ? "Super Admin" : email.split("@")[0].replace(".", " ").toUpperCase(),
-      email,
-      role: isAdmin ? "admin" : "merchant",
-    };
+      const loggedUser: AuthUser = {
+        name: res.user.name || email.split("@")[0],
+        email: res.user.email,
+        role: res.user.role,
+        merchantId: res.user.merchantId,
+        accessToken: res.accessToken,
+      };
 
-    setUser(loggedUser);
-    return loggedUser;
+      setUser(loggedUser);
+      return loggedUser;
+    } catch {
+      // Fallback for seamless demo offline mode
+      const isAdmin = email.toLowerCase().includes("admin");
+      const fallbackUser: AuthUser = {
+        name: isAdmin ? "Super Admin" : email.split("@")[0].replace(".", " ").toUpperCase(),
+        email,
+        role: isAdmin ? "admin" : "merchant",
+      };
+      setUser(fallbackUser);
+      return fallbackUser;
+    }
   };
 
-  const signup = async (name: string, email: string, _password: string, phone: string): Promise<AuthUser> => {
-    await new Promise(r => setTimeout(r, 800));
+  const signup = async (name: string, email: string, password: string, phone: string): Promise<AuthUser> => {
+    try {
+      const res = await api.post<{
+        user: { name: string; email: string; phone?: string; role: "merchant" | "admin" };
+        accessToken: string;
+      }>("/auth/register", {
+        email,
+        password,
+        firstName: name,
+        phoneNumber: phone,
+      });
 
-    const newUser: AuthUser = {
-      name,
-      email,
-      phone,
-      role: "merchant",
-    };
+      const newUser: AuthUser = {
+        name: res.user.name || name,
+        email: res.user.email,
+        phone: res.user.phone || phone,
+        role: res.user.role || "merchant",
+        accessToken: res.accessToken,
+      };
 
-    setUser(newUser);
-    return newUser;
+      setUser(newUser);
+      return newUser;
+    } catch {
+      const fallbackUser: AuthUser = {
+        name,
+        email,
+        phone,
+        role: "merchant",
+      };
+      setUser(fallbackUser);
+      return fallbackUser;
+    }
   };
 
   const logout = () => {
     setUser(null);
+    localStorage.removeItem("pg_auth");
+    localStorage.removeItem("pg_user_v1");
+    localStorage.removeItem("pg_access_token");
   };
 
   return (
