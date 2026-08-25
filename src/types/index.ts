@@ -45,6 +45,13 @@ export interface CourierBreakdown {
   deliveryRatio: number;
 }
 
+export interface VelocityStats {
+  recentOrders24h: number;
+  recentOrders48h: number;
+  distinctMerchantsCount: number;
+  isHighVelocity: boolean;
+}
+
 export interface FraudCheckResult {
   phone: string;
   name: string;
@@ -59,6 +66,7 @@ export interface FraudCheckResult {
   factors: string[];
   recommendation: string;
   courierBreakdown?: CourierBreakdown[];
+  velocityStats?: VelocityStats;
 }
 
 export interface CourierAccount {
@@ -112,4 +120,5 @@ export interface UserSettings {
     emailNotifications: boolean;
   };
 }
+
 

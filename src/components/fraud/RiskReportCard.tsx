@@ -2,7 +2,7 @@
 "use client";
 
 import React from "react";
-import { AlertTriangle, Plus, Check, ArrowRight, Truck, ShieldCheck, Zap } from "lucide-react";
+import { AlertTriangle, Plus, Check, ArrowRight, Truck, ShieldCheck, Zap, Flame } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { FraudCheckResult } from "@/types";
 import { Card, Badge, Button } from "@/components/ui/pg-ui";
@@ -42,6 +42,26 @@ export default function RiskReportCard({ result, isWatchlisted, onToggleWatchlis
           )}
         </div>
       </div>
+
+      {/* Velocity Multi-Order Anomaly Banner */}
+      {result.velocityStats?.isHighVelocity && (
+        <div className="mx-5 mt-4 p-3.5 bg-rose-600 text-white rounded-xl shadow-xs flex items-center justify-between gap-3 animate-pulse">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
+              <Flame size={18} className="text-white" />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide">High Velocity Anomaly: Multi-Order Trap Detected!</p>
+              <p className="text-xs text-rose-100">
+                Customer placed <b>{result.velocityStats.recentOrders48h} COD orders</b> across <b>{result.velocityStats.distinctMerchantsCount} different stores</b> in the last 48 hours.
+              </p>
+            </div>
+          </div>
+          <span className="text-[11px] font-bold bg-white text-rose-700 px-2.5 py-1 rounded-md whitespace-nowrap">
+            High Return Risk
+          </span>
+        </div>
+      )}
 
       <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Visual Score Meter */}
