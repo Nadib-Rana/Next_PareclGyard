@@ -2,16 +2,28 @@
 "use client";
 
 import React, { useState } from "react";
-import { Activity, RefreshCw, Zap, Key, CheckCircle2, AlertCircle, X, ShieldCheck } from "lucide-react";
+import { Activity, RefreshCw, Zap, Key, CheckCircle2, AlertCircle, X, Plus, Trash2, Globe } from "lucide-react";
 import { useAdmin } from "@/context/AdminContext";
 import type { CourierHealthMetric } from "@/types/admin";
 
 export default function AdminCouriersPage() {
-  const { couriers, toggleCourierStatus, updateMasterCredentials, testCourierConnection } = useAdmin();
+  const { couriers, toggleCourierStatus, updateMasterCredentials, testCourierConnection, addCourierGateway, deleteCourierGateway } = useAdmin();
+  
+  // Modals state
   const [selectedCourier, setSelectedCourier] = useState<CourierHealthMetric | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [secretKey, setSecretKey] = useState("");
   const [isActive, setIsActive] = useState(true);
+  
+  // Add new courier modal state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newLogo, setNewLogo] = useState("");
+  const [newColor, setNewColor] = useState("bg-indigo-600");
+  const [newApiUrl, setNewApiUrl] = useState("");
+  const [newApiKey, setNewApiKey] = useState("");
+  const [newSecretKey, setNewSecretKey] = useState("");
+
   const [testing, setTesting] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ provider: string; success: boolean; message: string } | null>(null);
 
@@ -27,6 +39,32 @@ export default function AdminCouriersPage() {
     if (!selectedCourier) return;
     await updateMasterCredentials(selectedCourier.name, apiKey, secretKey, isActive);
     setSelectedCourier(null);
+  };
+
+  const handleCreateNewCourier = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName.trim()) return;
+    await addCourierGateway({
+      name: newName.trim(),
+      logo: newLogo.trim() || newName.trim().slice(0, 2).toUpperCase(),
+      color: newColor,
+      apiUrl: newApiUrl.trim() || undefined,
+      apiKey: newApiKey.trim() || undefined,
+      secretKey: newSecretKey.trim() || undefined,
+      isActive: true,
+    });
+    setShowAddModal(false);
+    setNewName("");
+    setNewLogo("");
+    setNewApiUrl("");
+    setNewApiKey("");
+    setNewSecretKey("");
+  };
+
+  const handleDeleteCourier = async (provider: string) => {
+    if (confirm(`Are you sure you want to remove the ${provider} gateway?`)) {
+      await deleteCourierGateway(provider);
+    }
   };
 
   const handleTestConnection = async (name: string) => {
@@ -50,9 +88,15 @@ export default function AdminCouriersPage() {
             <Zap className="text-amber-400" size={22} /> Master Courier API Gateways & Health
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Configure platform-wide Master API keys, test live latency, and toggle failover routers.
+            Configure platform-wide Master API keys, add custom gateways, and monitor real-time latency.
           </p>
         </div>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-sm self-start sm:self-auto"
+        >
+          <Plus size={15} /> Add New Courier Gateway
+        </button>
       </div>
 
       {/* Global Status Banner */}
@@ -82,14 +126,15 @@ export default function AdminCouriersPage() {
         {couriers.map((c) => (
           <div
             key={c.name}
-            className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 flex flex-col justify-between shadow-sm"
+            className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 flex flex-col justify-between shadow-sm relative group"
           >
             <div>
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
                   <div
                     className={`w-10 h-10 rounded-xl ${
-                      c.name === "Steadfast"
+                      c.color ||
+                      (c.name === "Steadfast"
                         ? "bg-emerald-600"
                         : c.name === "Pathao"
                         ? "bg-indigo-600"
@@ -99,13 +144,20 @@ export default function AdminCouriersPage() {
                         ? "bg-amber-600"
                         : c.name === "ParcelDex"
                         ? "bg-blue-600"
-                        : "bg-purple-600"
-                    } text-white flex items-center justify-center font-bold text-xs`}
+                        : "bg-purple-600")
+                    } text-white flex items-center justify-center font-bold text-xs shadow-xs`}
                   >
-                    {c.name.slice(0, 2).toUpperCase()}
+                    {c.logo || c.name.slice(0, 2).toUpperCase()}
                   </div>
                   <div>
-                    <h2 className="font-bold text-white text-base">{c.name} Gateway</h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className="font-bold text-white text-base">{c.name} Gateway</h2>
+                      {c.isCustom && (
+                        <span className="text-[9px] bg-indigo-500/20 text-indigo-300 font-bold px-1.5 py-0.5 rounded border border-indigo-500/30">
+                          Custom
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span
                         className={`text-[10px] px-2 py-0.5 rounded font-bold ${
@@ -120,17 +172,28 @@ export default function AdminCouriersPage() {
                   </div>
                 </div>
 
-                <span
-                  className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                    c.status === "Operational"
-                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
-                      : c.status === "Degraded"
-                      ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
-                      : "bg-red-500/10 text-red-400 border border-red-500/30"
-                  }`}
-                >
-                  {c.status}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      c.status === "Operational"
+                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+                        : c.status === "Degraded"
+                        ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
+                        : "bg-red-500/10 text-red-400 border border-red-500/30"
+                    }`}
+                  >
+                    {c.status}
+                  </span>
+                  {c.isCustom && (
+                    <button
+                      onClick={() => handleDeleteCourier(c.name)}
+                      className="text-slate-500 hover:text-rose-400 p-1 transition-colors cursor-pointer"
+                      title="Delete custom gateway"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3 mt-4 text-xs">
@@ -189,7 +252,126 @@ export default function AdminCouriersPage() {
         ))}
       </div>
 
-      {/* Master API Credentials Modal */}
+      {/* Add New Courier Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-5 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs">
+                  <Plus size={16} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-base">Add New Courier Gateway</h3>
+                  <p className="text-xs text-slate-400">Connect custom Bangladeshi courier API provider</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateNewCourier} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Courier Name <span className="text-rose-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="e.g. eCourier, SA Paribahan, Sundarban"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Logo Text (2 Letters)</label>
+                  <input
+                    type="text"
+                    maxLength={3}
+                    value={newLogo}
+                    onChange={(e) => setNewLogo(e.target.value.toUpperCase())}
+                    placeholder="EC"
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Badge Color</label>
+                  <select
+                    value={newColor}
+                    onChange={(e) => setNewColor(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="bg-cyan-600">Cyan</option>
+                    <option value="bg-teal-600">Teal</option>
+                    <option value="bg-purple-600">Purple</option>
+                    <option value="bg-rose-600">Rose</option>
+                    <option value="bg-amber-600">Amber</option>
+                    <option value="bg-blue-600">Blue</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">API Base URL (Optional)</label>
+                <input
+                  type="text"
+                  value={newApiUrl}
+                  onChange={(e) => setNewApiUrl(e.target.value)}
+                  placeholder="https://api.courier.com.bd/v1"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Master API Key / Token</label>
+                <input
+                  type="text"
+                  value={newApiKey}
+                  onChange={(e) => setNewApiKey(e.target.value)}
+                  placeholder="Enter API Key"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Secret Key (if required)</label>
+                <input
+                  type="password"
+                  value={newSecretKey}
+                  onChange={(e) => setNewSecretKey(e.target.value)}
+                  placeholder="Enter Secret Key"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-sm"
+                >
+                  Create Gateway
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Master API Credentials Edit Modal */}
       {selectedCourier && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-5 shadow-2xl">

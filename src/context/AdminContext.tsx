@@ -41,6 +41,16 @@ export interface AdminContextType {
     target: SystemBroadcast["target"],
   ) => void;
   toggleCourierStatus: (name: string) => void;
+  addCourierGateway: (data: {
+    name: string;
+    logo?: string;
+    color?: string;
+    apiUrl?: string;
+    apiKey?: string;
+    secretKey?: string;
+    isActive?: boolean;
+  }) => Promise<void>;
+  deleteCourierGateway: (provider: string) => Promise<void>;
   updateMasterCredentials: (provider: string, apiKey: string, secretKey?: string, isActive?: boolean) => Promise<void>;
   testCourierConnection: (provider: string) => Promise<{ success: boolean; latencyMs: number; message: string }>;
   toggleMaintenanceMode: () => void;
@@ -66,6 +76,13 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   );
   const [maintenanceMode, setMaintenanceMode] = useState<boolean>(false);
   const [mounted, setMounted] = useState(false);
+
+  const refreshCouriers = async () => {
+    try {
+      const res = await api.get<CourierHealthMetric[]>("/admin/couriers/health");
+      if (Array.isArray(res)) setCouriers(res);
+    } catch {}
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -174,6 +191,25 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     api.post("/admin/couriers/toggle-health", { provider: name }).catch(() => {});
   };
 
+  const addCourierGateway = async (data: {
+    name: string;
+    logo?: string;
+    color?: string;
+    apiUrl?: string;
+    apiKey?: string;
+    secretKey?: string;
+    isActive?: boolean;
+  }) => {
+    await api.post("/admin/couriers", data);
+    await refreshCouriers();
+  };
+
+  const deleteCourierGateway = async (provider: string) => {
+    setCouriers((prev) => prev.filter((c) => c.name !== provider));
+    await api.delete(`/admin/couriers/${provider}`);
+    await refreshCouriers();
+  };
+
   const updateMasterCredentials = async (provider: string, apiKey: string, secretKey?: string, isActive = true) => {
     setCouriers((prev) =>
       prev.map((c) => (c.name === provider ? { ...c, apiKey, secretKey, isActive, isConfigured: Boolean(apiKey) } : c)),
@@ -212,6 +248,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         removeBlacklistEntry,
         sendBroadcast,
         toggleCourierStatus,
+        addCourierGateway,
+        deleteCourierGateway,
         updateMasterCredentials,
         testCourierConnection,
         toggleMaintenanceMode,

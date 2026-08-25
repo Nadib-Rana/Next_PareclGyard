@@ -29,6 +29,8 @@ export interface CourierHealthMetric {
   lastIncident: string;
   dailyRequests: number;
   isActive?: boolean;
+  isCustom?: boolean;
+  apiUrl?: string;
   apiKey?: string;
   secretKey?: string;
   isConfigured?: boolean;
