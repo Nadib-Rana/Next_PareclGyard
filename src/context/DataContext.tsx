@@ -1,14 +1,26 @@
-// src/context/DataContext.tsx
+﻿// src/context/DataContext.tsx
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import type { Parcel, Customer, FraudCheckResult, CourierAccount, Settlement, AppNotification, UserSettings } from "../types";
+import type {
+  Parcel,
+  Customer,
+  FraudCheckResult,
+  CourierAccount,
+  Settlement,
+  AppNotification,
+  UserSettings,
+} from "../types";
 import { exportParcelsToCSV, exportSettlementsToCSV, downloadSampleOrdersCSV } from "../lib/csv";
-import { evaluatePhoneRisk } from "../lib/risk";
 import { api } from "../lib/api";
 import {
-  getSavedParcels, getSavedCustomers, getSavedFraudChecks,
-  getSavedCouriers, getSavedSettlements, getSavedNotifications, getSavedSettings,
+  getSavedParcels,
+  getSavedCustomers,
+  getSavedFraudChecks,
+  getSavedCouriers,
+  getSavedSettlements,
+  getSavedNotifications,
+  getSavedSettings,
 } from "../lib/dataStorage";
 
 export type { Parcel, Customer, FraudCheckResult, CourierAccount, Settlement, AppNotification, UserSettings };
@@ -52,34 +64,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
-    // Attempt to fetch fresh data from backend
     const syncWithBackend = async () => {
       try {
-        const [pData, cData, sData, notifData, couriersData] = await Promise.allSettled([
+        const [pData, cData, sData, notifData, couriersData, fData] = await Promise.allSettled([
           api.get<{ items: Parcel[] }>("/parcels?limit=100"),
           api.get<Customer[]>("/customers"),
           api.get<Settlement[]>("/settlements"),
           api.get<AppNotification[]>("/notifications"),
           api.get<CourierAccount[]>("/couriers/accounts"),
+          api.get<FraudCheckResult[]>("/fraud/recent-checks"),
         ]);
 
-        if (pData.status === "fulfilled" && pData.value?.items?.length) {
+        if (pData.status === "fulfilled" && pData.value?.items) {
           setParcels(pData.value.items);
         }
-        if (cData.status === "fulfilled" && cData.value?.length) {
+        if (cData.status === "fulfilled" && Array.isArray(cData.value)) {
           setCustomers(cData.value);
         }
-        if (sData.status === "fulfilled" && sData.value?.length) {
+        if (sData.status === "fulfilled" && Array.isArray(sData.value)) {
           setSettlements(sData.value);
         }
-        if (notifData.status === "fulfilled" && notifData.value?.length) {
+        if (notifData.status === "fulfilled" && Array.isArray(notifData.value)) {
           setNotifications(notifData.value);
         }
-        if (couriersData.status === "fulfilled" && couriersData.value?.length) {
+        if (couriersData.status === "fulfilled" && Array.isArray(couriersData.value)) {
           setCouriers(couriersData.value);
         }
-      } catch {
-        // Continue with local storage data
+        if (fData.status === "fulfilled" && Array.isArray(fData.value)) {
+          setFraudChecks(fData.value);
+        }
+      } catch (err) {
+        console.warn("[DataContext] Failed to sync with backend:", err);
       }
     };
 
@@ -104,10 +119,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       date: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
     };
 
-    // Optimistic local state update
-    setParcels(prev => [newParcel, ...prev]);
+    setParcels((prev) => [newParcel, ...prev]);
 
-    // Async sync to backend
     api.post("/parcels", {
       customer: p.customer,
       phone: p.phone,
@@ -124,9 +137,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       risk: p.risk,
       status: p.status,
       notes: p.notes,
-    }).catch(() => {
-      // Local state preserved
-    });
+    }).then((created) => {
+      if (created && (created as any).id) {
+        setParcels((prev) => prev.map((item) => (item.id === newId ? (created as Parcel) : item)));
+      }
+    }).catch(() => {});
 
     return newParcel;
   };
@@ -138,10 +153,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       id: `PG-${Math.floor(100000 + idx + Math.random() * 900000)}`,
       date: today,
     }));
-    setParcels(prev => [...formatted, ...prev]);
+    setParcels((prev) => [...formatted, ...prev]);
 
     api.post("/parcels/bulk", {
-      parcels: items.map(p => ({
+      parcels: items.map((p) => ({
         customer: p.customer,
         phone: p.phone,
         address: p.address,
@@ -161,40 +176,54 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const updateParcelStatus = (id: string, status: Parcel["status"]) => {
-    setParcels(prev => prev.map(p => (p.id === id ? { ...p, status } : p)));
+    setParcels((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)));
     api.patch(`/parcels/${id}/status`, { status }).catch(() => {});
   };
 
   const checkPhoneRisk = (phone: string, name?: string): FraudCheckResult => {
-    const check = evaluatePhoneRisk(phone, name, customers);
-    setFraudChecks(prev => [check, ...prev]);
+    const check: FraudCheckResult = {
+      phone,
+      name: name || "Customer",
+      risk: "Safe",
+      score: 15,
+      date: "Just now",
+      totalOrders: 0,
+      delivered: 0,
+      returned: 0,
+      cancelled: 0,
+      successRate: "100%",
+      factors: ["Querying database..."],
+      recommendation: "Checking risk profile...",
+    };
 
-    api.post<FraudCheckResult>("/fraud/check-phone", { phone, name }).then(res => {
-      if (res) {
-        setFraudChecks(prev => [res, ...prev.filter(c => c.phone !== phone)]);
-      }
-    }).catch(() => {});
+    api.post<FraudCheckResult>("/fraud/check-phone", { phone, name })
+      .then((res) => {
+        if (res) {
+          setFraudChecks((prev) => [res, ...prev.filter((c) => c.phone !== phone)]);
+        }
+      })
+      .catch(() => {});
 
     return check;
   };
 
   const toggleWatchlist = (phone: string) => {
-    setCustomers(prev => prev.map(c => (c.phone === phone ? { ...c, isWatchlist: !c.isWatchlist } : c)));
+    setCustomers((prev) => prev.map((c) => (c.phone === phone ? { ...c, isWatchlist: !c.isWatchlist } : c)));
     api.patch(`/customers/${phone}/watchlist`).catch(() => {});
   };
 
   const addCustomerNote = (phone: string, note: string) => {
-    setCustomers(prev => prev.map(c => (c.phone === phone ? { ...c, notes: note } : c)));
+    setCustomers((prev) => prev.map((c) => (c.phone === phone ? { ...c, notes: note } : c)));
     api.post(`/customers/${phone}/notes`, { notes: note }).catch(() => {});
   };
 
   const toggleCourier = (name: string) => {
-    setCouriers(prev => prev.map(c => (c.name === name ? { ...c, connected: !c.connected } : c)));
+    setCouriers((prev) => prev.map((c) => (c.name === name ? { ...c, connected: !c.connected } : c)));
     api.post("/couriers/toggle", { provider: name.replace(" Courier", "") }).catch(() => {});
   };
 
   const updateCourierKeys = (name: string, apiKey: string, secretKey?: string) => {
-    setCouriers(prev => prev.map(c => (c.name === name ? { ...c, apiKey, secretKey, connected: true } : c)));
+    setCouriers((prev) => prev.map((c) => (c.name === name ? { ...c, apiKey, secretKey, connected: true } : c)));
     api.post("/couriers/connect", {
       provider: name.replace(" Courier", ""),
       apiKey,
@@ -203,22 +232,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const raiseDispute = (id: string, reason: string) => {
-    setSettlements(prev => prev.map(s => (s.id === id ? { ...s, status: "Disputed", disputeReason: reason } : s)));
+    setSettlements((prev) => prev.map((s) => (s.id === id ? { ...s, status: "Disputed", disputeReason: reason } : s)));
     api.post("/settlements/dispute", { settlementId: id, reason }).catch(() => {});
   };
 
   const markNotificationRead = (id: number) => {
-    setNotifications(prev => prev.map(n => (n.id === id ? { ...n, read: true } : n)));
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
     api.patch(`/notifications/${id}/read`).catch(() => {});
   };
 
   const markAllNotificationsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     api.patch("/notifications/read-all").catch(() => {});
   };
 
   const updateSettings = (newSettings: Partial<UserSettings>) => {
-    setSettings(prev => ({ ...prev, ...newSettings }));
+    setSettings((prev) => ({ ...prev, ...newSettings }));
     api.patch("/merchants/me", newSettings).catch(() => {});
   };
 
