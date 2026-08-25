@@ -40,6 +40,7 @@ export interface DataContextType {
   toggleWatchlist: (phone: string) => void;
   addCustomerNote: (phone: string, note: string) => void;
   toggleCourier: (name: string) => void;
+  syncCourier: (name: string) => Promise<void>;
   updateCourierKeys: (name: string, apiKey: string, secretKey?: string) => void;
   raiseDispute: (id: string, reason: string, amount?: number) => void;
   markNotificationRead: (id: number) => void;
@@ -223,12 +224,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
     api.post("/couriers/toggle", { provider: name.replace(" Courier", "") }).catch(() => {});
   };
 
+  const syncCourier = async (name: string) => {
+    try {
+      await api.post("/couriers/sync", { provider: name.replace(" Courier", "") });
+      const [cData, notifData] = await Promise.allSettled([
+        api.get<CourierAccount[]>("/couriers/accounts"),
+        api.get<AppNotification[]>("/notifications"),
+      ]);
+      if (cData.status === "fulfilled" && Array.isArray(cData.value)) setCouriers(cData.value);
+      if (notifData.status === "fulfilled" && Array.isArray(notifData.value)) setNotifications(notifData.value);
+    } catch (err) {
+      console.warn("[DataContext] Courier sync failed:", err);
+    }
+  };
+
   const updateCourierKeys = (name: string, apiKey: string, secretKey?: string) => {
     setCouriers((prev) => prev.map((c) => (c.name === name ? { ...c, apiKey, secretKey, connected: true } : c)));
     api.post("/couriers/connect", {
       provider: name.replace(" Courier", ""),
       apiKey,
       secretKey,
+    }).then(() => {
+      void syncCourier(name);
     }).catch(() => {});
   };
 
@@ -257,7 +274,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       value={{
         parcels, customers, fraudChecks, couriers, settlements, notifications, settings,
         addParcel, bulkAddParcels, updateParcelStatus, checkPhoneRisk, toggleWatchlist, addCustomerNote,
-        toggleCourier, updateCourierKeys, raiseDispute, markNotificationRead, markAllNotificationsRead, updateSettings,
+        toggleCourier, syncCourier, updateCourierKeys, raiseDispute, markNotificationRead, markAllNotificationsRead, updateSettings,
         exportParcelsCSV: (customList?: Parcel[]) => exportParcelsToCSV(customList ?? parcels),
         exportSettlementsCSV: () => exportSettlementsToCSV(settlements),
         generateSampleCSV: downloadSampleOrdersCSV,

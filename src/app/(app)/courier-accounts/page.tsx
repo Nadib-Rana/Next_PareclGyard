@@ -1,23 +1,25 @@
-// src/app/(app)/courier-accounts/page.tsx
+﻿// src/app/(app)/courier-accounts/page.tsx
 "use client";
 
 import React, { useState } from "react";
-import { RefreshCw, CheckCircle2, AlertCircle, Settings } from "lucide-react";
-import { useData } from "@/hooks/useData";
+import { RefreshCw, Settings } from "lucide-react";
+import { useData } from "@/context/DataContext";
 import { Card, Button, Badge } from "@/components/ui/pg-ui";
 import CourierConnectModal from "@/components/couriers/CourierConnectModal";
 import type { CourierAccount } from "@/types";
 
 export default function CourierAccountsPage() {
-  const { couriers, toggleCourier, updateCourierKeys } = useData();
+  const { couriers, toggleCourier, updateCourierKeys, syncCourier } = useData();
   const [selectedCourier, setSelectedCourier] = useState<CourierAccount | null>(null);
   const [syncing, setSyncing] = useState<string | null>(null);
 
-  const handleSync = (name: string) => {
+  const handleSync = async (name: string) => {
     setSyncing(name);
-    setTimeout(() => {
+    try {
+      await syncCourier(name);
+    } finally {
       setSyncing(null);
-    }, 1200);
+    }
   };
 
   return (
@@ -53,7 +55,7 @@ export default function CourierAccountsPage() {
               <div className="grid grid-cols-2 gap-3 mt-5 p-3.5 bg-slate-50 rounded-xl text-xs border border-slate-100">
                 <div>
                   <span className="text-slate-500 block">Available Balance:</span>
-                  <span className="text-base font-black text-slate-900">৳{c.balance.toLocaleString()}</span>
+                  <span className="text-base font-black text-slate-900">BDT {c.balance.toLocaleString()}</span>
                 </div>
                 <div>
                   <span className="text-slate-500 block">Webhook Tracking:</span>
@@ -70,7 +72,7 @@ export default function CourierAccountsPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleSync(c.name)}
+                    onClick={() => void handleSync(c.name)}
                     disabled={syncing === c.name}
                   >
                     <RefreshCw size={12} className={syncing === c.name ? "animate-spin text-indigo-600" : ""} />
