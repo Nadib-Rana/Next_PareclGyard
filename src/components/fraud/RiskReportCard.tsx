@@ -2,7 +2,7 @@
 "use client";
 
 import React from "react";
-import { AlertTriangle, Plus, Check, ArrowRight, Truck, ShieldCheck, Zap, Flame } from "lucide-react";
+import { AlertTriangle, Plus, Check, ArrowRight, Truck, ShieldCheck, Zap, Flame, CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { FraudCheckResult } from "@/types";
 import { Card, Badge, Button } from "@/components/ui/pg-ui";
@@ -13,21 +13,40 @@ interface Props {
   onToggleWatchlist: (phone: string) => void;
 }
 
+const ALL_COURIERS = [
+  { name: "Steadfast", logo: "SC", color: "bg-emerald-600" },
+  { name: "Pathao", logo: "PC", color: "bg-indigo-600" },
+  { name: "RedX", logo: "RX", color: "bg-red-600" },
+  { name: "Paperfly", logo: "PF", color: "bg-amber-600" },
+  { name: "ParcelDex", logo: "PD", color: "bg-blue-600" },
+  { name: "CarryBee", logo: "CB", color: "bg-purple-600" },
+];
+
 export default function RiskReportCard({ result, isWatchlisted, onToggleWatchlist }: Props) {
   const router = useRouter();
 
   const score = result.score;
+  const isSafe = score < 40 && result.returned === 0;
   const scoreColor = score >= 70 ? "text-red-600" : score >= 40 ? "text-amber-600" : "text-emerald-600";
   const scoreBg = score >= 70 ? "bg-red-50/50 border-red-200" : score >= 40 ? "bg-amber-50/50 border-amber-200" : "bg-emerald-50/50 border-emerald-200";
 
+  // Merge available courierBreakdown with the standard 6 couriers
+  const courierMap = new Map<string, { totalParcels: number; delivered: number; cancelled: number; deliveryRatio: number }>();
+  if (result.courierBreakdown) {
+    result.courierBreakdown.forEach((cb) => {
+      courierMap.set(cb.provider.toLowerCase(), cb);
+    });
+  }
+
   return (
-    <Card className={`border-2 ${scoreBg} transition-all`}>
-      <div className="p-5 border-b border-slate-200/80 bg-white/70 flex items-start justify-between">
+    <Card className={`border-2 ${scoreBg} transition-all overflow-hidden`}>
+      {/* Header */}
+      <div className="p-5 border-b border-slate-200/80 bg-white flex items-start justify-between">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="font-bold text-slate-900 text-base">Customer Reputation Report</h2>
-            <span className="flex items-center gap-1 text-[11px] bg-indigo-50 text-indigo-700 font-semibold px-2 py-0.5 rounded-full border border-indigo-100">
-              <Zap size={11} /> Multi-Courier Live Sync
+            <span className="flex items-center gap-1 text-[11px] bg-emerald-50 text-emerald-700 font-semibold px-2.5 py-0.5 rounded-full border border-emerald-200">
+              <Zap size={11} /> 6-Courier Live Network
             </span>
           </div>
           <p className="text-sm text-slate-600 font-mono mt-0.5 font-semibold">+880 {result.phone}</p>
@@ -38,7 +57,7 @@ export default function RiskReportCard({ result, isWatchlisted, onToggleWatchlis
           ) : result.risk === "Moderate" ? (
             <Badge variant="warning">MODERATE RISK</Badge>
           ) : (
-            <Badge variant="success">SAFE CUSTOMER</Badge>
+            <Badge variant="success">ঝুঁকি মুক্ত (SAFE)</Badge>
           )}
         </div>
       </div>
@@ -63,87 +82,101 @@ export default function RiskReportCard({ result, isWatchlisted, onToggleWatchlis
         </div>
       )}
 
-      <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Visual Score Meter */}
-        <div className="flex items-center gap-5 bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <div className="relative w-24 h-24 flex-shrink-0">
-            <svg viewBox="0 0 100 100" className="w-24 h-24 -rotate-90">
-              <circle cx="50" cy="50" r="40" fill="none" stroke="#f1f5f9" strokeWidth="10" />
-              <circle
-                cx="50"
-                cy="50"
-                r="40"
-                fill="none"
-                stroke={score >= 70 ? "#ef4444" : score >= 40 ? "#f59e0b" : "#10b981"}
-                strokeWidth="10"
-                strokeDasharray={`${score * 2.51} 251`}
-                strokeLinecap="round"
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className={`text-2xl font-black ${scoreColor}`}>{score}</span>
-              <span className="text-[10px] text-slate-400 font-bold">/100</span>
-            </div>
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Risk Assessment</p>
-            <p className={`text-xl font-bold ${scoreColor} mt-0.5`}>{result.risk}</p>
-            <p className="text-xs text-slate-600 mt-1">{result.recommendation}</p>
-          </div>
+      {/* Top 4 Summary Metric Cards */}
+      <div className="p-5 grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50/50">
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 text-center shadow-xs">
+          <p className="text-xs font-medium text-slate-500">মোট অর্ডার</p>
+          <p className="text-xl font-black text-slate-900 mt-0.5">{result.totalOrders}</p>
         </div>
-
-        {/* Stats Breakdown */}
-        <div className="grid grid-cols-2 gap-2.5">
-          {[
-            { label: "Total Orders", value: result.totalOrders, color: "text-slate-900" },
-            { label: "Delivered", value: result.delivered, color: "text-emerald-600" },
-            { label: "Returned / Refused", value: result.returned, color: "text-red-600" },
-            { label: "Success Rate", value: result.successRate, color: result.risk === "Safe" ? "text-emerald-600" : "text-amber-600" },
-          ].map(s => (
-            <div key={s.label} className="bg-white rounded-lg p-3 border border-slate-200 text-center shadow-xs">
-              <p className="text-xs text-slate-500">{s.label}</p>
-              <p className={`text-lg font-bold ${s.color} mt-0.5`}>{s.value}</p>
-            </div>
-          ))}
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 text-center shadow-xs">
+          <p className="text-xs font-medium text-slate-500">সফল ডেলিভারি</p>
+          <p className="text-xl font-black text-emerald-600 mt-0.5">{result.delivered}</p>
+        </div>
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 text-center shadow-xs">
+          <p className="text-xs font-medium text-slate-500">বাতিল / রিটার্ন</p>
+          <p className="text-xl font-black text-rose-600 mt-0.5">{result.returned}</p>
+        </div>
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 text-center shadow-xs">
+          <p className="text-xs font-medium text-slate-500">গড় ডেলিভারি হার</p>
+          <p className={`text-xl font-black ${result.risk === "High Risk" ? "text-rose-600" : "text-emerald-600"} mt-0.5`}>
+            {result.successRate}
+          </p>
         </div>
       </div>
 
-      {/* Multi-Courier Live Breakdown if available */}
-      {result.courierBreakdown && result.courierBreakdown.length > 0 && (
-        <div className="px-5 pb-4">
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
-            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-3 flex items-center gap-1.5">
-              <Truck size={14} className="text-indigo-600" /> Live Multi-Courier Network Breakdown
+      {/* 6-Courier Live Network Table (EliteMart Style) */}
+      <div className="p-5">
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+          <div className="p-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+              <Truck size={14} className="text-indigo-600" /> ৬টি কুরিয়ার নেটওয়ার্ক ডেলিভারি পরিসংখ্যান (Courier Matrix)
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {result.courierBreakdown.map((cb, idx) => (
-                <div key={idx} className="p-3 rounded-lg border border-slate-100 bg-slate-50/70">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-bold text-slate-900">{cb.provider}</span>
-                    <span className="text-xs font-bold text-emerald-600 font-mono">{cb.deliveryRatio}%</span>
-                  </div>
-                  <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden mb-2">
-                    <div
-                      className={`h-full ${cb.deliveryRatio >= 75 ? "bg-emerald-500" : cb.deliveryRatio >= 45 ? "bg-amber-500" : "bg-red-500"}`}
-                      style={{ width: `${Math.min(100, Math.max(5, cb.deliveryRatio))}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-[11px] text-slate-500">
-                    <span>Parcels: <b className="text-slate-800">{cb.totalParcels}</b></span>
-                    <span>Delivered: <b className="text-emerald-700">{cb.delivered}</b></span>
-                    <span>Returned: <b className="text-red-700">{cb.cancelled}</b></span>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <span className="text-[11px] text-slate-400 font-medium">রিয়েল-টাইম কুরিয়ার ডেটা</span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50/80 text-slate-600 font-bold border-b border-slate-200">
+                <tr>
+                  <th className="py-2.5 px-4">কুরিয়ার (Courier)</th>
+                  <th className="py-2.5 px-4 text-center">অর্ডার</th>
+                  <th className="py-2.5 px-4 text-center">ডেলিভারি</th>
+                  <th className="py-2.5 px-4 text-center">বাতিল</th>
+                  <th className="py-2.5 px-4 text-right">ডেলিভারি হার</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {ALL_COURIERS.map((c) => {
+                  const stat = courierMap.get(c.name.toLowerCase()) || { totalParcels: 0, delivered: 0, cancelled: 0, deliveryRatio: 0 };
+                  const hasData = stat.totalParcels > 0;
+
+                  return (
+                    <tr key={c.name} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-4 font-semibold text-slate-900 flex items-center gap-2">
+                        <span className={`w-5 h-5 rounded-md ${c.color} text-white flex items-center justify-center text-[10px] font-bold`}>
+                          {c.logo}
+                        </span>
+                        {c.name}
+                      </td>
+                      <td className="py-3 px-4 text-center font-mono font-medium text-slate-700">
+                        {stat.totalParcels}
+                      </td>
+                      <td className="py-3 px-4 text-center font-mono font-bold text-emerald-600">
+                        {stat.delivered}
+                      </td>
+                      <td className="py-3 px-4 text-center font-mono font-bold text-rose-600">
+                        {stat.cancelled}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        {hasData ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <div className="w-16 bg-slate-100 h-2 rounded-full overflow-hidden hidden sm:block">
+                              <div
+                                className={`h-full ${stat.deliveryRatio >= 80 ? "bg-emerald-500" : stat.deliveryRatio >= 50 ? "bg-amber-500" : "bg-rose-500"}`}
+                                style={{ width: `${Math.max(5, stat.deliveryRatio)}%` }}
+                              />
+                            </div>
+                            <span className={`font-bold font-mono ${stat.deliveryRatio >= 80 ? "text-emerald-600" : "text-rose-600"}`}>
+                              {stat.deliveryRatio}%
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-slate-400 font-medium">০% (নতুন গ্রাহক)</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Factors */}
       <div className="px-5 pb-4">
         <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-          <ShieldCheck size={14} className="text-slate-600" /> Detected Risk Factors & Signals
+          <ShieldCheck size={14} className="text-slate-600" /> সিস্টেম মূল্যায়ন ও অ্যালার্ট ফ্যাক্টরস
         </h3>
         <div className="space-y-1.5">
           {result.factors.map((factor, i) => (
@@ -159,7 +192,7 @@ export default function RiskReportCard({ result, isWatchlisted, onToggleWatchlis
       <div className={`mx-5 mb-5 rounded-xl p-4 text-white shadow-sm ${score >= 70 ? "bg-red-600" : score >= 40 ? "bg-amber-600" : "bg-emerald-600"}`}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <p className="text-xs uppercase font-bold tracking-wider opacity-85">Recommended Strategy</p>
+            <p className="text-xs uppercase font-bold tracking-wider opacity-85">রেকমেন্ডেড ডিসপ্যাচ স্ট্র্যাটেজি</p>
             <p className="font-semibold text-sm mt-0.5">{result.recommendation}</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">

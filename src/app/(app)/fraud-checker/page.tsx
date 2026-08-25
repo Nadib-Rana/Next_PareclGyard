@@ -16,10 +16,14 @@ export default function FraudCheckerPage() {
   const [showCsvModal, setShowCsvModal] = useState(false);
 
   const handleCheck = async () => {
-    if (!phone.trim()) return;
+    let clean = phone.trim().replace(/\D/g, "");
+    if (clean.startsWith("880") && clean.length === 13) clean = "0" + clean.slice(3);
+    else if (!clean.startsWith("0") && clean.length > 0) clean = "0" + clean;
+
+    if (!clean || clean.length < 10) return;
     setLoading(true);
     try {
-      const res = await checkPhoneRisk(phone.trim());
+      const res = await checkPhoneRisk(clean);
       setCurrentResult(res);
     } finally {
       setLoading(false);
@@ -43,7 +47,7 @@ export default function FraudCheckerPage() {
     <div className="p-6 space-y-6 max-w-screen-xl">
       <div>
         <h1 className="text-xl font-bold text-slate-900">Fraud Checker & Risk Engine</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Check customer delivery history and risk score before dispatching parcels.</p>
+        <p className="text-sm text-slate-500 mt-0.5">Check customer delivery history and risk score across all major Bangladeshi couriers.</p>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -51,7 +55,7 @@ export default function FraudCheckerPage() {
           {/* Search Card */}
           <Card className="p-6">
             <div className="flex items-center gap-3 mb-5">
-              <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-xs">
                 <Shield size={18} className="text-white" />
               </div>
               <div>
@@ -68,7 +72,7 @@ export default function FraudCheckerPage() {
                 type="tel"
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
-                placeholder="Enter mobile number (e.g. 01711234567)"
+                placeholder="Enter mobile number (e.g. 01567823568)"
                 className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-mono"
                 onKeyDown={e => e.key === "Enter" && void handleCheck()}
               />
