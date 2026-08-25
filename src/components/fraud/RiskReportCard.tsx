@@ -1,8 +1,8 @@
-// src/components/fraud/RiskReportCard.tsx
+﻿// src/components/fraud/RiskReportCard.tsx
 "use client";
 
 import React from "react";
-import { AlertTriangle, Plus, Check, ArrowRight } from "lucide-react";
+import { AlertTriangle, Plus, Check, ArrowRight, Truck, ShieldCheck, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { FraudCheckResult } from "@/types";
 import { Card, Badge, Button } from "@/components/ui/pg-ui";
@@ -24,23 +24,28 @@ export default function RiskReportCard({ result, isWatchlisted, onToggleWatchlis
     <Card className={`border-2 ${scoreBg} transition-all`}>
       <div className="p-5 border-b border-slate-200/80 bg-white/70 flex items-start justify-between">
         <div>
-          <h2 className="font-bold text-slate-900 text-base">Customer Reputation Report</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="font-bold text-slate-900 text-base">Customer Reputation Report</h2>
+            <span className="flex items-center gap-1 text-[11px] bg-indigo-50 text-indigo-700 font-semibold px-2 py-0.5 rounded-full border border-indigo-100">
+              <Zap size={11} /> Multi-Courier Live Sync
+            </span>
+          </div>
           <p className="text-sm text-slate-600 font-mono mt-0.5 font-semibold">+880 {result.phone}</p>
         </div>
         <div>
           {result.risk === "High Risk" ? (
-            <Badge variant="danger">🔴 HIGH RISK</Badge>
+            <Badge variant="danger">HIGH RISK</Badge>
           ) : result.risk === "Moderate" ? (
-            <Badge variant="warning">🟡 MODERATE RISK</Badge>
+            <Badge variant="warning">MODERATE RISK</Badge>
           ) : (
-            <Badge variant="success">🟢 SAFE CUSTOMER</Badge>
+            <Badge variant="success">SAFE CUSTOMER</Badge>
           )}
         </div>
       </div>
 
       <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Visual Score Meter */}
-        <div className="flex items-center gap-5 bg-white p-4 rounded-xl border border-slate-200">
+        <div className="flex items-center gap-5 bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
           <div className="relative w-24 h-24 flex-shrink-0">
             <svg viewBox="0 0 100 100" className="w-24 h-24 -rotate-90">
               <circle cx="50" cy="50" r="40" fill="none" stroke="#f1f5f9" strokeWidth="10" />
@@ -75,7 +80,7 @@ export default function RiskReportCard({ result, isWatchlisted, onToggleWatchlis
             { label: "Returned / Refused", value: result.returned, color: "text-red-600" },
             { label: "Success Rate", value: result.successRate, color: result.risk === "Safe" ? "text-emerald-600" : "text-amber-600" },
           ].map(s => (
-            <div key={s.label} className="bg-white rounded-lg p-3 border border-slate-200 text-center">
+            <div key={s.label} className="bg-white rounded-lg p-3 border border-slate-200 text-center shadow-xs">
               <p className="text-xs text-slate-500">{s.label}</p>
               <p className={`text-lg font-bold ${s.color} mt-0.5`}>{s.value}</p>
             </div>
@@ -83,12 +88,46 @@ export default function RiskReportCard({ result, isWatchlisted, onToggleWatchlis
         </div>
       </div>
 
+      {/* Multi-Courier Live Breakdown if available */}
+      {result.courierBreakdown && result.courierBreakdown.length > 0 && (
+        <div className="px-5 pb-4">
+          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+              <Truck size={14} className="text-indigo-600" /> Live Multi-Courier Network Breakdown
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {result.courierBreakdown.map((cb, idx) => (
+                <div key={idx} className="p-3 rounded-lg border border-slate-100 bg-slate-50/70">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-bold text-slate-900">{cb.provider}</span>
+                    <span className="text-xs font-bold text-emerald-600 font-mono">{cb.deliveryRatio}%</span>
+                  </div>
+                  <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden mb-2">
+                    <div
+                      className={`h-full ${cb.deliveryRatio >= 75 ? "bg-emerald-500" : cb.deliveryRatio >= 45 ? "bg-amber-500" : "bg-red-500"}`}
+                      style={{ width: `${Math.min(100, Math.max(5, cb.deliveryRatio))}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[11px] text-slate-500">
+                    <span>Parcels: <b className="text-slate-800">{cb.totalParcels}</b></span>
+                    <span>Delivered: <b className="text-emerald-700">{cb.delivered}</b></span>
+                    <span>Returned: <b className="text-red-700">{cb.cancelled}</b></span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Factors */}
       <div className="px-5 pb-4">
-        <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">Detected Risk Factors & Signals</h3>
+        <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+          <ShieldCheck size={14} className="text-slate-600" /> Detected Risk Factors & Signals
+        </h3>
         <div className="space-y-1.5">
           {result.factors.map((factor, i) => (
-            <div key={i} className="flex items-center gap-2 text-xs text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-2">
+            <div key={i} className="flex items-center gap-2 text-xs text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-xs">
               <AlertTriangle size={13} className={score >= 70 ? "text-red-500" : "text-amber-500"} />
               <span>{factor}</span>
             </div>
@@ -97,7 +136,7 @@ export default function RiskReportCard({ result, isWatchlisted, onToggleWatchlis
       </div>
 
       {/* Action Banner */}
-      <div className={`mx-5 mb-5 rounded-xl p-4 text-white ${score >= 70 ? "bg-red-600" : score >= 40 ? "bg-amber-600" : "bg-emerald-600"}`}>
+      <div className={`mx-5 mb-5 rounded-xl p-4 text-white shadow-sm ${score >= 70 ? "bg-red-600" : score >= 40 ? "bg-amber-600" : "bg-emerald-600"}`}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <p className="text-xs uppercase font-bold tracking-wider opacity-85">Recommended Strategy</p>

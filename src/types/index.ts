@@ -1,4 +1,4 @@
-// src/types/index.ts
+﻿// src/types/index.ts
 
 export interface Parcel {
   id: string;
@@ -37,6 +37,14 @@ export interface Customer {
   notes?: string;
 }
 
+export interface CourierBreakdown {
+  provider: string;
+  totalParcels: number;
+  delivered: number;
+  cancelled: number;
+  deliveryRatio: number;
+}
+
 export interface FraudCheckResult {
   phone: string;
   name: string;
@@ -50,6 +58,7 @@ export interface FraudCheckResult {
   successRate: string;
   factors: string[];
   recommendation: string;
+  courierBreakdown?: CourierBreakdown[];
 }
 
 export interface CourierAccount {
@@ -103,3 +112,4 @@ export interface UserSettings {
     emailNotifications: boolean;
   };
 }
+
