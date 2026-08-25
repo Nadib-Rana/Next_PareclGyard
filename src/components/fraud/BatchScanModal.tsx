@@ -1,4 +1,4 @@
-// src/components/fraud/BatchScanModal.tsx
+﻿// src/components/fraud/BatchScanModal.tsx
 "use client";
 
 import React, { useState } from "react";
@@ -8,18 +8,24 @@ import { Card, Button, Badge } from "@/components/ui/pg-ui";
 
 interface Props {
   onClose: () => void;
-  onScan: (phone: string) => FraudCheckResult;
+  onScan: (phone: string) => Promise<FraudCheckResult> | FraudCheckResult;
 }
 
 export default function BatchScanModal({ onClose, onScan }: Props) {
   const [csvText, setCsvText] = useState("");
   const [batchResults, setBatchResults] = useState<FraudCheckResult[]>([]);
+  const [isScanning, setIsScanning] = useState(false);
 
-  const handleBatchScan = () => {
+  const handleBatchScan = async () => {
     if (!csvText.trim()) return;
-    const lines = csvText.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
-    const results = lines.slice(0, 10).map(p => onScan(p));
-    setBatchResults(results);
+    setIsScanning(true);
+    try {
+      const lines = csvText.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+      const results = await Promise.all(lines.slice(0, 10).map(p => onScan(p)));
+      setBatchResults(results);
+    } finally {
+      setIsScanning(false);
+    }
   };
 
   return (
@@ -42,7 +48,9 @@ export default function BatchScanModal({ onClose, onScan }: Props) {
         />
         <div className="flex justify-end gap-2 mt-3">
           <Button variant="secondary" size="sm" onClick={onClose}>Close</Button>
-          <Button size="sm" onClick={handleBatchScan}>Scan Numbers</Button>
+          <Button size="sm" onClick={() => void handleBatchScan()} disabled={isScanning || !csvText.trim()}>
+            {isScanning ? "Scanning..." : "Scan Numbers"}
+          </Button>
         </div>
 
         {batchResults.length > 0 && (

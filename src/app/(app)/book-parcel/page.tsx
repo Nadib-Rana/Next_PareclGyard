@@ -1,4 +1,4 @@
-// src/app/(app)/book-parcel/page.tsx
+﻿// src/app/(app)/book-parcel/page.tsx
 "use client";
 
 import React, { useState, useEffect, Suspense } from "react";
@@ -42,10 +42,13 @@ function BookParcelForm() {
   useEffect(() => {
     if (phone.length >= 11) {
       setCheckingRisk(true);
-      const timer = setTimeout(() => {
-        const res = checkPhoneRisk(phone, customerName);
-        setFraudResult(res);
-        setCheckingRisk(false);
+      const timer = setTimeout(async () => {
+        try {
+          const res = await checkPhoneRisk(phone, customerName);
+          setFraudResult(res);
+        } finally {
+          setCheckingRisk(false);
+        }
       }, 500);
       return () => clearTimeout(timer);
     }
@@ -160,3 +163,4 @@ export default function BookParcelPage() {
     </Suspense>
   );
 }
+

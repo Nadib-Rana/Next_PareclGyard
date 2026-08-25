@@ -1,4 +1,4 @@
-// src/app/(app)/fraud-checker/page.tsx
+﻿// src/app/(app)/fraud-checker/page.tsx
 "use client";
 
 import React, { useState } from "react";
@@ -15,14 +15,15 @@ export default function FraudCheckerPage() {
   const [loading, setLoading] = useState(false);
   const [showCsvModal, setShowCsvModal] = useState(false);
 
-  const handleCheck = () => {
-    if (!phone) return;
+  const handleCheck = async () => {
+    if (!phone.trim()) return;
     setLoading(true);
-    setTimeout(() => {
-      const res = checkPhoneRisk(phone);
+    try {
+      const res = await checkPhoneRisk(phone.trim());
       setCurrentResult(res);
+    } finally {
       setLoading(false);
-    }, 600);
+    }
   };
 
   const handleSelectRecent = (check: FraudCheckResult) => {
@@ -31,7 +32,11 @@ export default function FraudCheckerPage() {
   };
 
   const isCustomerWatchlisted = currentResult
-    ? customers.some(c => c.phone.replace(/\D/g, "") === currentResult.phone.replace(/\D/g, "") && c.isWatchlist)
+    ? customers.some(
+        c =>
+          c.phone.replace(/\D/g, "") === currentResult.phone.replace(/\D/g, "") &&
+          c.isWatchlist,
+      )
     : false;
 
   return (
@@ -57,7 +62,7 @@ export default function FraudCheckerPage() {
 
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-sm font-medium text-slate-700 flex-shrink-0">
-                🇧🇩 +880
+                BD +880
               </div>
               <input
                 type="tel"
@@ -65,9 +70,9 @@ export default function FraudCheckerPage() {
                 onChange={e => setPhone(e.target.value)}
                 placeholder="Enter mobile number (e.g. 01711234567)"
                 className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-mono"
-                onKeyDown={e => e.key === "Enter" && handleCheck()}
+                onKeyDown={e => e.key === "Enter" && void handleCheck()}
               />
-              <Button onClick={handleCheck} disabled={loading || !phone}>
+              <Button onClick={() => void handleCheck()} disabled={loading || !phone.trim()}>
                 {loading ? (
                   <span className="flex items-center gap-2">
                     <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Checking...
