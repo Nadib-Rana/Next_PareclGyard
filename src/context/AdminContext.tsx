@@ -40,7 +40,9 @@ export interface AdminContextType {
     type: SystemBroadcast["type"],
     target: SystemBroadcast["target"],
   ) => void;
-  toggleCourierStatus: (name: CourierHealthMetric["name"]) => void;
+  toggleCourierStatus: (name: string) => void;
+  updateMasterCredentials: (provider: string, apiKey: string, secretKey?: string, isActive?: boolean) => Promise<void>;
+  testCourierConnection: (provider: string) => Promise<{ success: boolean; latencyMs: number; message: string }>;
   toggleMaintenanceMode: () => void;
 }
 
@@ -154,7 +156,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     api.post("/admin/broadcasts", { title, message, type, target }).catch(() => {});
   };
 
-  const toggleCourierStatus = (name: CourierHealthMetric["name"]) => {
+  const toggleCourierStatus = (name: string) => {
     setCouriers((prev) =>
       prev.map((c) => {
         if (c.name === name) {
@@ -170,6 +172,24 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       }),
     );
     api.post("/admin/couriers/toggle-health", { provider: name }).catch(() => {});
+  };
+
+  const updateMasterCredentials = async (provider: string, apiKey: string, secretKey?: string, isActive = true) => {
+    setCouriers((prev) =>
+      prev.map((c) => (c.name === provider ? { ...c, apiKey, secretKey, isActive, isConfigured: Boolean(apiKey) } : c)),
+    );
+    await api.post("/admin/couriers/credentials", { provider, apiKey, secretKey, isActive });
+  };
+
+  const testCourierConnection = async (provider: string) => {
+    const res = await api.post<{ success: boolean; latencyMs: number; message: string }>("/admin/couriers/test", { provider });
+    if (res) {
+      setCouriers((prev) =>
+        prev.map((c) => (c.name === provider ? { ...c, latencyMs: res.latencyMs, status: "Operational" } : c)),
+      );
+      return res;
+    }
+    return { success: false, latencyMs: 0, message: "Connection test failed" };
   };
 
   const toggleMaintenanceMode = () => {
@@ -192,6 +212,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         removeBlacklistEntry,
         sendBroadcast,
         toggleCourierStatus,
+        updateMasterCredentials,
+        testCourierConnection,
         toggleMaintenanceMode,
       }}
     >

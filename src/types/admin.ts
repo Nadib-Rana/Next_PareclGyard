@@ -18,13 +18,20 @@ export interface PlatformMerchant {
 }
 
 export interface CourierHealthMetric {
-  name: "Steadfast" | "Pathao" | "RedX" | "Paperfly" | "eCourier";
+  id?: string;
+  name: string;
+  logo?: string;
+  color?: string;
   uptime: string;
   latencyMs: number;
   errorRate: string;
   status: "Operational" | "Degraded" | "Outage";
   lastIncident: string;
   dailyRequests: number;
+  isActive?: boolean;
+  apiKey?: string;
+  secretKey?: string;
+  isConfigured?: boolean;
 }
 
 export interface GlobalBlacklistEntry {
