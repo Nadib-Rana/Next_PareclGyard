@@ -2,7 +2,7 @@
 "use client";
 
 import React from "react";
-import { AlertTriangle, Plus, Check, ArrowRight, Truck, ShieldCheck, Zap, Flame, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, Plus, Check, ArrowRight, Truck, ShieldCheck, Zap, Flame } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { FraudCheckResult } from "@/types";
 import { Card, Badge, Button } from "@/components/ui/pg-ui";
@@ -26,17 +26,18 @@ export default function RiskReportCard({ result, isWatchlisted, onToggleWatchlis
   const router = useRouter();
 
   const score = result.score;
-  const isSafe = score < 40 && result.returned === 0;
   const scoreColor = score >= 70 ? "text-red-600" : score >= 40 ? "text-amber-600" : "text-emerald-600";
   const scoreBg = score >= 70 ? "bg-red-50/50 border-red-200" : score >= 40 ? "bg-amber-50/50 border-amber-200" : "bg-emerald-50/50 border-emerald-200";
 
-  // Merge available courierBreakdown with the standard 6 couriers
+  // Map courier stats
   const courierMap = new Map<string, { totalParcels: number; delivered: number; cancelled: number; deliveryRatio: number }>();
   if (result.courierBreakdown) {
     result.courierBreakdown.forEach((cb) => {
       courierMap.set(cb.provider.toLowerCase(), cb);
     });
   }
+
+  const cleanPhoneDisplay = result.phone.startsWith("0") ? result.phone : `0${result.phone}`;
 
   return (
     <Card className={`border-2 ${scoreBg} transition-all overflow-hidden`}>
@@ -49,7 +50,7 @@ export default function RiskReportCard({ result, isWatchlisted, onToggleWatchlis
               <Zap size={11} /> 6-Courier Live Network
             </span>
           </div>
-          <p className="text-sm text-slate-600 font-mono mt-0.5 font-semibold">+880 {result.phone}</p>
+          <p className="text-sm text-slate-600 mt-0.5 font-semibold">+880 {cleanPhoneDisplay}</p>
         </div>
         <div>
           {result.risk === "High Risk" ? (
@@ -138,13 +139,13 @@ export default function RiskReportCard({ result, isWatchlisted, onToggleWatchlis
                         </span>
                         {c.name}
                       </td>
-                      <td className="py-3 px-4 text-center font-mono font-medium text-slate-700">
+                      <td className="py-3 px-4 text-center font-bold text-slate-800">
                         {stat.totalParcels}
                       </td>
-                      <td className="py-3 px-4 text-center font-mono font-bold text-emerald-600">
+                      <td className="py-3 px-4 text-center font-bold text-emerald-600">
                         {stat.delivered}
                       </td>
-                      <td className="py-3 px-4 text-center font-mono font-bold text-rose-600">
+                      <td className="py-3 px-4 text-center font-bold text-rose-600">
                         {stat.cancelled}
                       </td>
                       <td className="py-3 px-4 text-right">
@@ -156,7 +157,7 @@ export default function RiskReportCard({ result, isWatchlisted, onToggleWatchlis
                                 style={{ width: `${Math.max(5, stat.deliveryRatio)}%` }}
                               />
                             </div>
-                            <span className={`font-bold font-mono ${stat.deliveryRatio >= 80 ? "text-emerald-600" : "text-rose-600"}`}>
+                            <span className={`font-bold ${stat.deliveryRatio >= 80 ? "text-emerald-600" : "text-rose-600"}`}>
                               {stat.deliveryRatio}%
                             </span>
                           </div>
@@ -199,12 +200,12 @@ export default function RiskReportCard({ result, isWatchlisted, onToggleWatchlis
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => router.push(`/book-parcel?phone=${result.phone}`)}
+              onClick={() => router.push(`/book-parcel?phone=${cleanPhoneDisplay}`)}
             >
               Book Parcel <ArrowRight size={12} />
             </Button>
             <button
-              onClick={() => onToggleWatchlist(result.phone)}
+              onClick={() => onToggleWatchlist(cleanPhoneDisplay)}
               className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all flex items-center gap-1 cursor-pointer ${
                 isWatchlisted
                   ? "bg-white text-red-600 border-white"

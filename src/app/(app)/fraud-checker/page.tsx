@@ -70,8 +70,14 @@ export default function FraudCheckerPage() {
               </div>
               <input
                 type="tel"
+                maxLength={11}
                 value={phone}
-                onChange={e => setPhone(e.target.value)}
+                onChange={e => {
+                  let v = e.target.value.replace(/\D/g, "");
+                  if (v.startsWith("880") && v.length >= 13) v = "0" + v.slice(3);
+                  if (v.length > 11) v = v.slice(0, 11);
+                  setPhone(v);
+                }}
                 placeholder="Enter mobile number (e.g. 01567823568)"
                 className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-mono"
                 onKeyDown={e => e.key === "Enter" && void handleCheck()}
@@ -148,3 +154,4 @@ export default function FraudCheckerPage() {
     </div>
   );
 }
+
