@@ -1,4 +1,4 @@
-﻿// src/components/fraud/RiskReportCard.tsx
+// src/components/fraud/RiskReportCard.tsx
 "use client";
 
 import React from "react";
@@ -50,7 +50,7 @@ export default function RiskReportCard({ result, isWatchlisted, onToggleWatchlis
               <Zap size={11} /> 6-Courier Live Network
             </span>
           </div>
-          <p className="text-sm text-slate-600 mt-0.5 font-semibold">+880 {cleanPhoneDisplay}</p>
+          <p className="text-sm text-slate-600 mt-0.5 font-semibold">+88 {cleanPhoneDisplay}</p>
         </div>
         <div>
           {result.risk === "High Risk" ? (
