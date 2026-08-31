@@ -1,4 +1,4 @@
-﻿// src/context/DataContext.tsx
+// src/context/DataContext.tsx
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from "react";
@@ -43,8 +43,10 @@ export interface DataContextType {
   syncCourier: (name: string) => Promise<void>;
   updateCourierKeys: (name: string, apiKey: string, secretKey?: string) => void;
   raiseDispute: (id: string, reason: string, amount?: number) => void;
-  markNotificationRead: (id: number) => void;
+  markNotificationRead: (id: number | string) => void;
   markAllNotificationsRead: () => void;
+  deleteNotification: (id: number | string) => void;
+  clearReadNotifications: () => void;
   updateSettings: (newSettings: Partial<UserSettings>) => void;
   exportParcelsCSV: (customList?: Parcel[]) => void;
   exportSettlementsCSV: () => void;
@@ -254,7 +256,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     api.post("/settlements/dispute", { settlementId: id, reason }).catch(() => {});
   };
 
-  const markNotificationRead = (id: number) => {
+  const markNotificationRead = (id: number | string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
     api.patch(`/notifications/${id}/read`).catch(() => {});
   };
@@ -262,6 +264,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const markAllNotificationsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     api.patch("/notifications/read-all").catch(() => {});
+  };
+
+  const deleteNotification = (id: number | string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    api.delete(`/notifications/${id}`).catch(() => {});
+  };
+
+  const clearReadNotifications = () => {
+    setNotifications((prev) => prev.filter((n) => !n.read));
+    api.delete("/notifications/clear-read").catch(() => {});
   };
 
   const updateSettings = (newSettings: Partial<UserSettings>) => {
@@ -274,7 +286,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       value={{
         parcels, customers, fraudChecks, couriers, settlements, notifications, settings,
         addParcel, bulkAddParcels, updateParcelStatus, checkPhoneRisk, toggleWatchlist, addCustomerNote,
-        toggleCourier, syncCourier, updateCourierKeys, raiseDispute, markNotificationRead, markAllNotificationsRead, updateSettings,
+        toggleCourier, syncCourier, updateCourierKeys, raiseDispute, markNotificationRead, markAllNotificationsRead,
+        deleteNotification, clearReadNotifications, updateSettings,
         exportParcelsCSV: (customList?: Parcel[]) => exportParcelsToCSV(customList ?? parcels),
         exportSettlementsCSV: () => exportSettlementsToCSV(settlements),
         generateSampleCSV: downloadSampleOrdersCSV,

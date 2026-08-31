@@ -1,4 +1,4 @@
-﻿// src/types/index.ts
+// src/types/index.ts
 
 export interface Parcel {
   id: string;
@@ -95,13 +95,15 @@ export interface Settlement {
 }
 
 export interface AppNotification {
-  id: number;
-  type: "risk" | "payment" | "parcel" | "system";
+  id: number | string;
+  dbId?: string;
+  type: "risk" | "payment" | "parcel" | "system" | string;
   title: string;
   body: string;
   time: string;
   read: boolean;
-  category: "Parcels" | "Payments" | "Risk Alerts" | "System";
+  category: "Parcels" | "Payments" | "Risk Alerts" | "System" | string;
+  link?: string;
 }
 
 export interface UserSettings {
