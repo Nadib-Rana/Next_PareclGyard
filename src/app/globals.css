@@ -113,3 +113,74 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* =========================================================
+   Thermal & A4 Shipping Labels Print Stylesheet
+   ========================================================= */
+@media print {
+  @page {
+    margin: 0;
+    size: auto;
+  }
+
+  /* Hide all non-printable dashboard elements */
+  header,
+  nav,
+  aside,
+  .no-print,
+  button,
+  input,
+  .sidebar,
+  .top-search,
+  [data-no-print] {
+    display: none !important;
+  }
+
+  body, html {
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .print-only-container {
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  .shipping-label-4x6 {
+    width: 3.85in !important;
+    height: 5.8in !important;
+    max-width: 3.85in !important;
+    max-height: 5.8in !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    margin: 0 auto !important;
+    box-shadow: none !important;
+    border: 2px solid #000 !important;
+  }
+
+  .shipping-label-a4-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8mm !important;
+    padding: 8mm !important;
+    page-break-inside: avoid !important;
+  }
+
+  .shipping-label-a4-item {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    border: 2px solid #000 !important;
+    box-shadow: none !important;
+  }
+}
