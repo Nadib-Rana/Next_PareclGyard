@@ -251,9 +251,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }).catch(() => {});
   };
 
-  const raiseDispute = (id: string, reason: string) => {
+  const raiseDispute = (id: string, reason: string, amount?: number) => {
     setSettlements((prev) => prev.map((s) => (s.id === id ? { ...s, status: "Disputed", disputeReason: reason } : s)));
-    api.post("/settlements/dispute", { settlementId: id, reason }).catch(() => {});
+    api.post("/settlements/dispute", { settlementId: id, reason, disputedAmount: amount }).catch(() => {});
   };
 
   const markNotificationRead = (id: number | string) => {
