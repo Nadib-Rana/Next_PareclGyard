@@ -1,18 +1,41 @@
 // src/app/(app)/reports/page.tsx
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Download, TrendingUp, TrendingDown, Package, ShieldAlert, Calendar, BarChart3 } from "lucide-react";
 import { useData } from "@/hooks/useData";
+import { api } from "@/lib/api";
 import { StatCard, Button } from "@/components/ui/pg-ui";
 import ReportsChartsGrid from "@/components/reports/ReportsChartsGrid";
 
 export default function ReportsPage() {
   const { parcels, fraudChecks, exportParcelsCSV } = useData();
   const [timeRange, setTimeRange] = useState<"7d" | "30d" | "90d" | "all">("30d");
+  const [dbAnalytics, setDbAnalytics] = useState<any>(null);
 
-  // Dynamic KPI Calculations
+  useEffect(() => {
+    api
+      .get<any>(`/analytics/overview?timeRange=${timeRange}`)
+      .then(res => {
+        if (res) setDbAnalytics(res);
+      })
+      .catch(err => {
+        console.warn("[Reports] Failed to fetch server analytics:", err);
+      });
+  }, [timeRange]);
+
+  // Dynamic KPI Calculations (from DB API or Local State)
   const stats = useMemo(() => {
+    if (dbAnalytics?.kpi) {
+      return {
+        deliveryRate: dbAnalytics.kpi.deliveryRate,
+        returnRate: dbAnalytics.kpi.returnRate,
+        blockedFraudCount: dbAnalytics.kpi.blockedFraudCount,
+        preventedLossAmount: dbAnalytics.kpi.preventedLossAmount,
+        turnaroundHours: dbAnalytics.kpi.turnaroundHours,
+      };
+    }
+
     const total = parcels.length;
     const delivered = parcels.filter(p => p.status === "Delivered").length;
     const returned = parcels.filter(p => p.status === "Returned" || p.status === "Cancelled").length;
@@ -28,9 +51,9 @@ export default function ReportsPage() {
       returnRate,
       blockedFraudCount,
       preventedLossAmount,
-      totalParcels: total,
+      turnaroundHours: "24.8 hrs",
     };
-  }, [parcels, fraudChecks]);
+  }, [dbAnalytics, parcels, fraudChecks]);
 
   return (
     <div className="p-6 space-y-6 max-w-screen-xl">
@@ -40,7 +63,7 @@ export default function ReportsPage() {
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-slate-900">Analytics & Performance Reports</h1>
             <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-indigo-200">
-              Live BI & Courier Metrics
+              Live Database BI & Courier Metrics
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
@@ -100,15 +123,21 @@ export default function ReportsPage() {
         />
         <StatCard
           label="Avg. Delivery Turnaround"
-          value="24.8 hrs"
+          value={stats.turnaroundHours}
           icon={<Package size={20} />}
           sub="Fastest via Steadfast Hubs"
         />
       </div>
 
       {/* Dynamic Visualizations Grid */}
-      <ReportsChartsGrid parcels={parcels} fraudChecks={fraudChecks} timeRange={timeRange} />
+      <ReportsChartsGrid
+        parcels={parcels}
+        fraudChecks={fraudChecks}
+        timeRange={timeRange}
+        dbAnalytics={dbAnalytics}
+      />
     </div>
   );
 }
+
 
